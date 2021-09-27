@@ -1,0 +1,35 @@
+{
+    "name": "safemoon-contracts",
+    "version": "1.0.0",
+    "description": "EMPIRE Safemoon",
+    "main": "truffle-config.js",
+    "directories": {
+      "test": "test"
+    },
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/Prism-Network-io/empire-safemoon.git"
+    },
+    "author": "PRISM",
+    "license": "ISC",
+    "bugs": {
+      "url": "https://github.com/Prism-Network-io/empire-safemoon/issues"
+    },
+    "homepage": "https://github.com/Prism-Network-io/empire-safemoon#readme",
+    "dependencies": {
+      "@openzeppelin/contracts": "^3.3.0",
+      "@truffle/hdwallet-provider": "^1.4.1",
+      "dotenv": "^8.6.0",
+      "openzeppelin-test-helpers": "^0.5.1",
+      "truffle-flattener": "^1.5.0",
+      "web3": "^1.3.4"
+    },
+    "devDependencies": {
+      "chai": "^4.3.4",
+      "truffle-plugin-verify": "^0.5.15"
+    }
+  }
+  
