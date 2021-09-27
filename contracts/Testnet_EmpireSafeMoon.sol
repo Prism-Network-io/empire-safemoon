@@ -633,7 +633,7 @@ interface IEmpireFactory {
     function setFeeToSetter(address) external;
 }
 
-contract EmpireSafeMoon is Context, IERC20, Ownable {
+contract EmpireSafeMoonTest is Context, IERC20, Ownable {
     using SafeMath for uint256;
     using Address for address;
 
