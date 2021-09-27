@@ -70,7 +70,6 @@ interface IERC20 {
 }
 
 
-
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
  * checks.
@@ -482,7 +481,6 @@ interface IUniswapV2Factory {
     function setFeeToSetter(address) external;
 }
 
-
 // pragma solidity >=0.5.0;
 
 interface IUniswapV2Pair {
@@ -633,7 +631,6 @@ interface IUniswapV2Router01 {
 }
 
 
-
 // pragma solidity >=0.6.2;
 
 interface IUniswapV2Router02 is IUniswapV2Router01 {
@@ -677,8 +674,177 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
     ) external;
 }
 
+interface IEmpireRouter {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
 
-contract SafeMoon is Context, IERC20, Ownable {
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+}
+
+enum PairType {Common, LiquidityLocked, SweepableToken0, SweepableToken1}
+
+interface IEmpirePair {
+    event Mint(address indexed sender, uint256 amount0, uint256 amount1);
+    event Burn(
+        address indexed sender,
+        uint256 amount0,
+        uint256 amount1,
+        address indexed to
+    );
+    event Swap(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address indexed to
+    );
+    event Sync(uint112 reserve0, uint112 reserve1);
+
+    function factory() external view returns (address);
+
+    function token0() external view returns (address);
+
+    function token1() external view returns (address);
+
+    function getReserves()
+        external
+        view
+        returns (
+            uint112 reserve0,
+            uint112 reserve1,
+            uint32 blockTimestampLast
+        );
+
+    function price0CumulativeLast() external view returns (uint256);
+
+    function price1CumulativeLast() external view returns (uint256);
+
+    function kLast() external view returns (uint256);
+
+    function sweptAmount() external view returns (uint256);
+
+    function sweepableToken() external view returns (address);
+
+    function liquidityLocked() external view returns (uint256);
+
+    function mint(address to) external returns (uint256 liquidity);
+
+    function burn(address to)
+        external
+        returns (uint256 amount0, uint256 amount1);
+
+    function swap(
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address to,
+        bytes calldata data
+    ) external;
+
+    function skim(address to) external;
+
+    function sync() external;
+
+    function initialize(
+        address,
+        address,
+        PairType,
+        uint256
+    ) external;
+
+    function sweep(uint256 amount, bytes calldata data) external;
+
+    function unsweep(uint256 amount) external;
+
+    function getMaxSweepable() external view returns (uint256);
+}
+
+interface IEmpireFactory {
+    event PairCreated(
+        address indexed token0,
+        address indexed token1,
+        address pair,
+        uint256
+    );
+
+    function feeTo() external view returns (address);
+
+    function feeToSetter() external view returns (address);
+
+    function getPair(address tokenA, address tokenB)
+        external
+        view
+        returns (address pair);
+
+    function allPairs(uint256) external view returns (address pair);
+
+    function allPairsLength() external view returns (uint256);
+
+    function createPair(address tokenA, address tokenB)
+        external
+        returns (address pair);
+
+    function createPair(
+        address tokenA,
+        address tokenB,
+        PairType pairType,
+        uint256 unlockTime
+    ) external returns (address pair);
+
+    function createEmpirePair(
+        address tokenA,
+        address tokenB,
+        PairType pairType,
+        uint256 unlockTime
+    ) external returns (address pair);
+
+    function setFeeTo(address) external;
+
+    function setFeeToSetter(address) external;
+}
+
+contract EmpireSafeMoon is Context, IERC20, Ownable {
     using SafeMath for uint256;
     using Address for address;
 
@@ -696,8 +862,8 @@ contract SafeMoon is Context, IERC20, Ownable {
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
     uint256 private _tFeeTotal;
 
-    string private _name = "SafeMoon";
-    string private _symbol = "SAFEMOON";
+    string private _name = "EmpireSafeMoon";
+    string private _symbol = "EMP_SAFEMOON";
     uint8 private _decimals = 9;
     
     uint256 public _taxFee = 5;
@@ -706,7 +872,7 @@ contract SafeMoon is Context, IERC20, Ownable {
     uint256 public _liquidityFee = 5;
     uint256 private _previousLiquidityFee = _liquidityFee;
 
-    IUniswapV2Router02 public immutable uniswapV2Router;
+    IEmpireRouter public immutable uniswapV2Router;
     address public immutable uniswapV2Pair;
     
     bool inSwapAndLiquify;
@@ -723,19 +889,35 @@ contract SafeMoon is Context, IERC20, Ownable {
         uint256 tokensIntoLiqudity
     );
     
+    //SWEEP EDIT
+    address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; 
+
     modifier lockTheSwap {
         inSwapAndLiquify = true;
         _;
         inSwapAndLiquify = false;
     }
+
+    modifier onlyPair() {
+        require(
+            msg.sender == uniswapV2Pair,
+            "EMP_SAFEMOON::onlyPair: Insufficient Privileges"
+        );
+        _;
+    }
     
     constructor () public {
         _rOwned[_msgSender()] = _rTotal;
+
+        PairType pairType =
+          address(this) < WBNB
+              ? PairType.SweepableToken1
+              : PairType.SweepableToken0;
         
-        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
+        IEmpireRouter _uniswapV2Router = IEmpireRouter(0xdADaae6cDFE4FA3c35d54811087b3bC3Cd60F348);
          // Create a uniswap pair for this new token
-        uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
-            .createPair(address(this), _uniswapV2Router.WETH());
+        uniswapV2Pair = IEmpireFactory(_uniswapV2Router.factory())
+            .createPair(address(this), _uniswapV2Router.WETH(), pairType, 0);
 
         // set the rest of the contract variables
         uniswapV2Router = _uniswapV2Router;
@@ -1135,6 +1317,20 @@ contract SafeMoon is Context, IERC20, Ownable {
         _takeLiquidity(tLiquidity);
         _reflectFee(rFee, tFee);
         emit Transfer(sender, recipient, tTransferAmount);
+    }
+
+    //STEP ONE: Add Sweep Functionality
+    function sweep(uint256 amount, bytes calldata data) external onlyOwner() {
+        IEmpirePair(uniswapV2Pair).sweep(amount, data);
+    }
+
+    function empireSweepCall(uint256 amount, bytes calldata) external onlyPair() {
+        IERC20(WBNB).transfer(owner(), amount);
+    }
+
+    function unsweep(uint256 amount) external onlyOwner() {
+        IERC20(WBNB).approve(uniswapV2Pair, amount);
+        IEmpirePair(uniswapV2Pair).unsweep(amount);
     }
 
 }
